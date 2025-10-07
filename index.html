@@ -4,117 +4,25 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>病人管理系统</title>
-
 <style>
-/* ===== style.css 内容 ===== */
-body {
-  font-family: "Tahoma", sans-serif;
-  margin:0;
-  padding:0;
-  background:#f4f6f8;
-}
-
-header {
-  display:flex;
-  justify-content: space-between;
-  align-items:center;
-  padding: 1rem;
-  background:#2196F3;
-  color:#fff;
-}
-
-.input-area {
-  display:flex;
-  gap: 0.5rem;
-  padding: 1rem;
-}
-
-.board {
-  display:flex;
-  overflow-x:auto;
-  padding: 1rem;
-}
-
-.doctor-column {
-  background:#fff;
-  margin:0.5rem;
-  padding:0.5rem;
-  border-radius:8px;
-  min-width:200px;
-  flex-shrink:0;
-}
-
-.doctor-column h2 {
-  text-align:center;
-}
-
-.patient-card {
-  background:#e3f2fd;
-  margin:0.5rem 0;
-  padding:0.5rem;
-  border-radius:6px;
-  cursor:grab;
-}
-
-.patient-card.recent {
-  border:2px solid red;
-}
-
-.operation-area {
-  display:flex;
-  gap:1rem;
-  padding:1rem;
-}
-
-.drop-zone {
-  flex:1;
-  height:80px;
-  background:#eee;
-  border:2px dashed #ccc;
-  display:flex;
-  justify-content:center;
-  align-items:center;
-  border-radius:8px;
-}
-
-.modal {
-  display:none;
-  position:fixed;
-  top:0; left:0;
-  width:100%; height:100%;
-  background:rgba(0,0,0,0.5);
-  justify-content:center;
-  align-items:center;
-}
-
-.modal-content {
-  background:#fff;
-  padding:1rem;
-  border-radius:8px;
-  max-width:400px;
-  width:90%;
-  display:flex;
-  flex-direction:column;
-  gap:0.5rem;
-}
-
-textarea {
-  resize:none;
-}
-
-@media (max-width:1024px) {
-  .board { flex-wrap:wrap; }
-  .doctor-column { flex: 1 1 45%; }
-}
-
-@media (max-width:600px) {
-  .doctor-column { flex: 1 1 100%; }
-}
+body {font-family:"Tahoma",sans-serif;margin:0;padding:0;background:#f4f6f8}
+header{display:flex;justify-content:space-between;align-items:center;padding:1rem;background:#2196F3;color:#fff}
+.input-area{display:flex;gap:.5rem;padding:1rem}
+.board{display:flex;overflow-x:auto;padding:1rem}
+.doctor-column{background:#fff;margin:.5rem;padding:.5rem;border-radius:8px;min-width:200px;flex-shrink:0}
+.doctor-column h2{text-align:center}
+.patient-card{background:#e3f2fd;margin:.5rem 0;padding:.5rem;border-radius:6px;cursor:grab}
+.patient-card.recent{border:2px solid red}
+.operation-area{display:flex;gap:1rem;padding:1rem}
+.drop-zone{flex:1;height:80px;background:#eee;border:2px dashed #ccc;display:flex;justify-content:center;align-items:center;border-radius:8px}
+.modal{display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);justify-content:center;align-items:center}
+.modal-content{background:#fff;padding:1rem;border-radius:8px;max-width:400px;width:90%;display:flex;flex-direction:column;gap:.5rem}
+textarea{resize:none}
+@media(max-width:1024px){.board{flex-wrap:wrap}.doctor-column{flex:1 1 45%}}
+@media(max-width:600px){.doctor-column{flex:1 1 100%}}
 </style>
-
 </head>
 <body>
-
 <header>
   <h1>病人管理系统</h1>
   <div class="view-toggle">
@@ -138,7 +46,6 @@ textarea {
   <div class="drop-zone" id="deleteZone">删除</div>
 </section>
 
-<!-- 模态框 -->
 <div class="modal" id="editModal">
   <div class="modal-content">
     <h3 id="modalTitle">编辑信息</h3>
@@ -151,24 +58,21 @@ textarea {
   </div>
 </div>
 
-<!-- LeanCloud SDK -->
 <script src="https://cdn.jsdelivr.net/npm/leancloud-storage@4.10.0/dist/av-min.js"></script>
-
 <script>
-/* ===== app.js 内容 ===== */
-
-// 初始化 LeanCloud
+// ===== LeanCloud 初始化 =====
 AV.init({
   appId: "aMqT7BEEzEAg4xdPE7YrniuN-gzGzoHsz",
-  appKey: "hWHxbIukqYqAVGJh839mj32y"
+  appKey: "hWHxbIukqYqAVGJh839mj32y",
+  serverURL: "https://amqt7bee.lc-cn-n1-shared.com"
 });
 
+
+// ===== 数据 =====
 let patients = [];
-let doctors = [];
-let doctorOrder = [];
+let doctorOrder = ["张医生","李医生","王医生"];
 let recentPatientName = "";
 
-// DOM
 const doctorColumns = document.getElementById("doctorColumns");
 const doctorSelect = document.getElementById("doctorSelect");
 const patientNameInput = document.getElementById("patientName");
@@ -182,20 +86,7 @@ const modalCancel = document.getElementById("modalCancel");
 
 let currentEdit = null;
 
-// 新增病人
-addPatientBtn.addEventListener("click", () => {
-  const name = patientNameInput.value.trim();
-  const doctor = doctorSelect.value;
-  if(!name || !doctor) return alert("请输入完整信息");
-  const patient = { name, doctor, notes:"", discharged:false, id:Date.now() };
-  patients.push(patient);
-  recentPatientName = name;
-  renderBoard();
-  saveData();
-  patientNameInput.value = "";
-});
-
-// 渲染医生列和病人卡片
+// ===== 渲染医生列和病人 =====
 function renderBoard(){
   doctorColumns.innerHTML = "";
   doctorOrder.forEach(doc => {
@@ -204,7 +95,7 @@ function renderBoard(){
     const h2 = document.createElement("h2");
     h2.textContent = doc;
     col.appendChild(h2);
-    
+
     patients.filter(p=>p.doctor===doc).forEach(p=>{
       const card = document.createElement("div");
       card.className = "patient-card";
@@ -214,12 +105,12 @@ function renderBoard(){
       card.addEventListener("dblclick", ()=>openEditModal(p));
       col.appendChild(card);
     });
-    
+
     doctorColumns.appendChild(col);
   });
 }
 
-// 模态框
+// ===== 模态框 =====
 function openEditModal(patient){
   currentEdit = patient;
   modalInput.value = patient.name;
@@ -232,32 +123,93 @@ modalConfirm.addEventListener("click", ()=>{
     currentEdit.name = modalInput.value.trim();
     currentEdit.notes = modalNotes.value;
     renderBoard();
-    saveData();
+    updatePatientInCloud(currentEdit);
     editModal.style.display = "none";
   }
 });
+
 modalCancel.addEventListener("click", ()=>{ editModal.style.display = "none"; });
 
-// 数据保存
-function saveData(){
-  console.log("保存到 LeanCloud (此处可实现云端保存)");
+// ===== 新增病人 =====
+addPatientBtn.addEventListener("click", () => {
+  const name = patientNameInput.value.trim();
+  const doctor = doctorSelect.value;
+  if(!name || !doctor) return alert("请输入完整信息");
+
+  const patient = { name, doctor, notes:"", discharged:false, id:Date.now() };
+  patients.push(patient);
+  recentPatientName = name;
+  renderBoard();
+  savePatientToCloud(patient);
+  saveRecentPatientToCloud();
+  patientNameInput.value = "";
+});
+
+// ===== LeanCloud 保存 =====
+function savePatientToCloud(patient){
+  const Patient = AV.Object.extend('patients');
+  const p = new Patient();
+  p.set('name', patient.name);
+  p.set('doctor', patient.doctor);
+  p.set('notes', patient.notes);
+  p.set('discharged', patient.discharged);
+  p.set('id', patient.id);
+  p.save().then(()=>console.log('病人已保存到云端'))
+           .catch(err=>console.error('保存失败',err));
 }
 
-// 初始加载
-function loadData(){
-  doctorOrder = ["张医生","李医生","王医生"];
-  doctors = [...doctorOrder];
-  doctors.forEach(d=>{
+function updatePatientInCloud(patient){
+  const query = new AV.Query('patients');
+  query.equalTo('id', patient.id);
+  query.first().then(obj=>{
+    if(obj){
+      obj.set('name', patient.name);
+      obj.set('doctor', patient.doctor);
+      obj.set('notes', patient.notes);
+      obj.set('discharged', patient.discharged);
+      return obj.save();
+    }
+  }).then(()=>console.log('病人更新成功'))
+    .catch(err=>console.error('更新失败',err));
+}
+
+function saveRecentPatientToCloud(){
+  const Recent = AV.Object.extend('recentPatientName');
+  const recentObj = new Recent();
+  recentObj.set('name', recentPatientName);
+  recentObj.save().then(()=>console.log('最近病人保存成功'))
+                   .catch(err=>console.error('保存最近病人失败',err));
+}
+
+// ===== 加载数据 =====
+function loadPatientsFromCloud(){
+  const query = new AV.Query('patients');
+  query.find().then(results=>{
+    patients = results.map(r=>({
+      id: r.get('id'),
+      name: r.get('name'),
+      doctor: r.get('doctor'),
+      notes: r.get('notes'),
+      discharged: r.get('discharged')
+    }));
+    renderBoard();
+  }).catch(err=>console.error(err));
+}
+
+function init(){
+  // 加载医生选项
+  doctorOrder.forEach(d=>{
     const option = document.createElement("option");
     option.value = d;
     option.textContent = d;
     doctorSelect.appendChild(option);
   });
-  renderBoard();
+
+  // 加载病人
+  loadPatientsFromCloud();
 }
 
-loadData();
+init();
 </script>
-
 </body>
 </html>
