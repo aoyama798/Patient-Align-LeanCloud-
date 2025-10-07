@@ -4,32 +4,196 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>创二病人看板系统</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
 <style>
-body {font-family:"Tahoma",sans-serif;margin:0;padding:0;background:#f4f6f8}
-header{display:flex;justify-content:space-between;align-items:center;padding:1rem;background:#2196F3;color:#fff}
-.input-area{display:flex;gap:.5rem;padding:1rem;flex-wrap:wrap}
-.board {display: flex;flex-wrap: wrap;gap: 1rem;justify-content: center;padding: 1rem;}
-.doctor-column {background: #fff;margin: 0.5rem;padding: 0.5rem;border-radius: 8px;min-width: 200px;flex: 1 1 calc(20% - 1rem);box-sizing: border-box;}
-@media (max-width: 600px) {.doctor-column {flex: 2 2 100%;}}
-.patient-card{background:#e3f2fd;margin:.5rem 0;padding:.5rem;border-radius:6px;cursor:grab}
-.patient-card.recent{border:2px solid red}
-.operation-area{display:flex;gap:1rem;padding:1rem}
-.drop-zone{flex:1;height:80px;background:#eee;border:2px dashed #ccc;display:flex;justify-content:center;align-items:center;border-radius:8px}
-.modal{display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);justify-content:center;align-items:center;z-index:1000}
-.modal-content{background:#fff;padding:1rem;border-radius:8px;max-width:400px;width:90%;display:flex;flex-direction:column;gap:.5rem}
-textarea, select, input[type="text"]{resize:none}
-.modal-buttons{display:flex;justify-content:flex-end;gap:.5rem}
+/* ===== 全局 ===== */
+body {
+  margin:0;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  background: url('https://images.unsplash.com/photo-1588776814546-47c1f6dc4ff3?auto=format&fit=crop&w=1950&q=80') no-repeat center center fixed;
+  background-size: cover;
+  color:#333;
+}
+header {
+  display:flex;
+  justify-content: space-between;
+  align-items:center;
+  padding:1rem 2rem;
+  background: rgba(33, 150, 243,0.9);
+  color:#fff;
+  box-shadow: 0 3px 6px rgba(0,0,0,0.2);
+  backdrop-filter: blur(4px);
+}
+header h1 {
+  margin:0;
+  font-size:1.8rem;
+}
+header img {
+  height:2.5rem;
+  margin-right:0.5rem;
+}
+
+/* ===== 输入区 ===== */
+.input-area {
+  display:flex;
+  flex-wrap:wrap;
+  gap:0.5rem;
+  padding:1rem 2rem;
+  background: rgba(255,255,255,0.85);
+  border-bottom: 2px solid #ccc;
+  border-radius: 12px;
+  margin: 1rem;
+}
+.input-area input, .input-area button {
+  padding:0.5rem 1rem;
+  border-radius: 8px;
+  border:1px solid #ccc;
+  font-size:1rem;
+}
+.input-area button {
+  background:#2196F3;
+  color:#fff;
+  border:none;
+  cursor:pointer;
+  transition:0.2s;
+}
+.input-area button:hover { background:#1976D2; }
+
+/* 父容器 Grid 设置 */
+
+
+
+.board {
+
+  gap: 1rem; /* 列间距 */
+  padding: 1rem 2rem;
+
+}
+
+/* 子元素不再使用 flex 宽度 */
+.doctor-column {
+  background: rgba(255,255,255,0.9);
+  border-radius: 12px;
+  padding: 1rem;
+  box-shadow: 0 3px 8px rgba(0,0,0,0.15);
+  display: flex;
+  flex-direction: column;
+  width: auto;    /* 关键：不要 100% */
+  min-width: 0;   /* 允许自动缩小 */
+  flex: unset;    /* 取消原来的 flex: 1 1 ... */
+}
+
+
+
+.doctor-column h2 {
+  display:flex;
+  justify-content: center;
+  align-items:center;
+  font-size:1.2rem;
+  margin-bottom:0.8rem;
+}
+.doctor-column h2 i {
+  cursor:pointer;
+  color:#555;
+  transition:0.2s;
+}
+.doctor-column h2 i:hover { color:#2196F3; }
+
+/* ===== 病人卡片 ===== */
+.patient-card {
+  background: linear-gradient(135deg, #e3f2fd, #bbdefb);
+  margin:0.5rem 0;
+  padding:0.7rem 1rem;
+  border-radius: 10px;
+  cursor:pointer;
+  display:flex;
+  justify-content: space-between;
+  align-items:center;
+  box-shadow:0 2px 5px rgba(0,0,0,0.1);
+  transition:0.2s;
+}
+.patient-card.recent { border: 2px solid #f44336; }
+.patient-card:hover { transform: translateY(-2px); box-shadow:0 4px 10px rgba(0,0,0,0.2); }
+.patient-card i { margin-left:0.5rem; color:#555; }
+
+  
+/* ===== 出院/删除区域 ===== */
+.operation-area {
+  display:flex;
+  gap:1rem;
+  padding:1rem 2rem;
+}
+.drop-zone {
+  flex:1;
+  height:80px;
+  background: rgba(255,255,255,0.8);
+  border:2px dashed #ccc;
+  border-radius:12px;
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  font-weight:bold;
+  color:#555;
+  transition:0.2s;
+}
+.drop-zone:hover { background: rgba(33,150,243,0.1); border-color:#2196F3; }
+
+/* ===== 模态框 ===== */
+.modal {
+  display:none;
+  position:fixed;
+  top:0; left:0;
+  width:100%; height:100%;
+  background: rgba(0,0,0,0.5);
+  justify-content:center;
+  align-items:center;
+  z-index:1000;
+}
+.modal-content {
+  background:#fff;
+  padding:1.5rem;
+  border-radius:12px;
+  max-width:400px;
+  width:90%;
+  display:flex;
+  flex-direction:column;
+  gap:0.7rem;
+  box-shadow:0 4px 15px rgba(0,0,0,0.2);
+}
+.modal-buttons {
+  display:flex;
+  justify-content:flex-end;
+  gap:0.5rem;
+}
+.modal-buttons button {
+  padding:0.5rem 1rem;
+  border-radius:8px;
+  border:none;
+  cursor:pointer;
+  transition:0.2s;
+}
+.modal-buttons button:hover { opacity:0.85; }
+#modalConfirm, #modalConfirmDoctor { background:#2196F3; color:#fff; }
+#modalDelete, #modalDeleteDoctor { background:#f44336; color:#fff; }
+#modalDischarge { background:#4CAF50; color:#fff; }
+#modalCancel, #modalCancelDoctor { background:#aaa; color:#fff; }
 </style>
 </head>
+
+
+
+
+
+  
 <body>
 <header>
-  <div style="display:flex; align-items:center; justify-content:center; gap:0.5em;">
-    <img src="https://mac-upic.oss-cn-chengdu.aliyuncs.com/logo.png" style="width:auto; height:2em;">
-    <h1 style="margin:0;">创二·患者看板</h1>
+  <div style="display:flex; align-items:center;">
+    <img src="https://mac-upic.oss-cn-chengdu.aliyuncs.com/logo.png" alt="logo">
+    <h1>创二·患者看板</h1>
   </div>
-  <div class="view-toggle">
-    <button id="currentPatientsBtn">当前在院</button>
-    <button id="allPatientsBtn">所有病人</button>
+  <div>
+    <button id="currentPatientsBtn"><i class="bi bi-house"></i> 当前在院</button>
+    <button id="allPatientsBtn"><i class="bi bi-people"></i> 所有病人</button>
   </div>
 </header>
 
@@ -37,7 +201,7 @@ textarea, select, input[type="text"]{resize:none}
   <input type="text" id="patientName" placeholder="输入病人姓名">
   <input list="doctorList" id="doctorInput" placeholder="输入医生姓名或选择">
   <datalist id="doctorList"></datalist>
-  <button id="addPatientBtn">新增病人</button>
+  <button id="addPatientBtn"><i class="bi bi-person-plus"></i> 新增病人</button>
 </section>
 
 <section class="board">
@@ -45,22 +209,22 @@ textarea, select, input[type="text"]{resize:none}
 </section>
 
 <section class="operation-area">
-  <div class="drop-zone" id="dischargeZone">出院</div>
-  <div class="drop-zone" id="deleteZone">删除</div>
+  <div class="drop-zone" id="dischargeZone"><i class="bi bi-box-arrow-up"></i> 出院</div>
+  <div class="drop-zone" id="deleteZone"><i class="bi bi-trash"></i> 删除</div>
 </section>
 
 <!-- 病人编辑模态 -->
 <div class="modal" id="editModal">
   <div class="modal-content">
-    <h3 id="modalTitle">编辑信息</h3>
-    <input type="text" id="modalInput" placeholder="姓名">
-    <textarea id="modalNotes" placeholder="备注/代办事项"></textarea>
-    <select id="modalDoctorSelect"></select>
+    <h3>编辑病人</h3>
+    <span>姓名</span><input type="text" id="modalInput" placeholder="姓名">
+    <span>备注</span><textarea id="modalNotes" placeholder="备注/代办事项"></textarea>
+    <span>分配医生</span><select id="modalDoctorSelect"></select>
     <div class="modal-buttons">
-      <button id="modalDischarge">出院</button>
-      <button id="modalDelete">删除</button>
-      <button id="modalConfirm">确认</button>
-      <button id="modalCancel">取消</button>
+      <button id="modalDischarge"><i class="bi bi-box-arrow-up"></i> 出院</button>
+      <button id="modalDelete"><i class="bi bi-trash"></i> 删除</button>
+      <button id="modalConfirm"><i class="bi bi-check-circle"></i> 确认</button>
+      <button id="modalCancel"><i class="bi bi-x-circle"></i> 取消</button>
     </div>
   </div>
 </div>
@@ -69,16 +233,23 @@ textarea, select, input[type="text"]{resize:none}
 <div class="modal" id="editDoctorModal">
   <div class="modal-content">
     <h3>编辑医生</h3>
-    <input type="text" id="modalDoctorName" placeholder="医生姓名">
-    <input type="text" id="modalDoctorOrderText" placeholder="用-分隔医生顺序，例如：肖-汪-曹">
+    <span>医生姓名</span><input type="text" id="modalDoctorName" placeholder="医生姓名">
+    <span>展示顺序</span><input type="text" id="modalDoctorOrderText" placeholder="用-分隔医生顺序，例如：肖-汪-曹">
     <div class="modal-buttons">
-      <button id="modalDeleteDoctor">删除医生及其病人</button>
-      <button id="modalConfirmDoctor">确认</button>
-      <button id="modalCancelDoctor">取消</button>
+      <button id="modalDeleteDoctor"><i class="bi bi-trash"></i> 删除医生及其病人</button>
+      <button id="modalConfirmDoctor"><i class="bi bi-check-circle"></i> 确认</button>
+      <button id="modalCancelDoctor"><i class="bi bi-x-circle"></i> 取消</button>
     </div>
   </div>
 </div>
 
+
+
+
+
+
+
+  
 <script src="https://cdn.jsdelivr.net/npm/leancloud-storage@4.10.0/dist/av-min.js"></script>
 <script>
 // ===== LeanCloud 初始化 =====
@@ -127,30 +298,55 @@ let currentEdit = null;
 let currentEditDoctorIndex = null;
 
 // ===== 渲染医生列和病人 =====
-function renderBoard(){
+function renderBoard() {
   doctorColumns.innerHTML = "";
-  doctorOrder.forEach((doc, idx)=>{
+  doctorColumns.style.display = "grid";
+  doctorColumns.style.gridTemplateColumns = "1fr 1fr"; 
+  doctorColumns.style.gap = "1rem";
+  doctorColumns.style.alignItems = "start"; 
+  doctorColumns.style.justifyItems = "stretch"; 
+
+  doctorOrder.forEach((doc, idx) => {
     const col = document.createElement("div");
     col.className = "doctor-column";
 
     const h2 = document.createElement("h2");
     h2.textContent = doc;
     col.appendChild(h2);
-    h2.addEventListener("click", ()=>openDoctorModal(idx));
+    h2.addEventListener("click", () => openDoctorModal(idx));
 
-    patients.filter(p=>p.doctor===doc).forEach(p=>{
-      if(currentView==="current" && p.discharged) return;
+    patients.filter(p => p.doctor === doc).forEach(p => {
+      if (currentView === "current" && p.discharged) return;
+
       const card = document.createElement("div");
-      card.className="patient-card";
-      if(p.name===recentPatientName) card.classList.add("recent");
-      card.textContent = currentView==="all" && p.discharged ? `${p.name}（已出院）`: p.name;
+      card.className = "patient-card";
+      if (p.name === recentPatientName) card.classList.add("recent");
       card.draggable = true;
-      card.addEventListener("dragstart", e=>{ e.dataTransfer.setData("text/plain",p.objectId); });
-      card.addEventListener("click", ()=>openEditModal(p));
+
+      card.addEventListener("dragstart", e => { e.dataTransfer.setData("text/plain", p.objectId); });
+      card.addEventListener("click", () => openEditModal(p));
+
+      const nameSpan = document.createElement("span");
+      nameSpan.textContent = currentView === "all" && p.discharged ? `${p.name}（已出院）` : p.name;
+      card.appendChild(nameSpan);
+
+      if (p.notes && p.notes.trim() !== "") {
+        const noteDiv = document.createElement("div");
+        noteDiv.textContent = p.notes;
+        noteDiv.style.fontSize = "0.85rem";
+        noteDiv.style.color = "#555";
+        noteDiv.style.marginTop = "0.3rem";
+        card.appendChild(noteDiv);
+      }
+
       col.appendChild(card);
     });
+
+    col.style.flex = "unset";
+    col.style.minWidth = "0";
     doctorColumns.appendChild(col);
   });
+
   updateDoctorDatalist();
 }
 
@@ -194,21 +390,91 @@ modalConfirm.addEventListener("click", ()=>{
 });
 
 modalCancel.addEventListener("click", ()=>{ editModal.style.display = "none"; });
-modalDischarge.addEventListener("click", ()=>{
-  if(currentEdit){
+
+// ===== 二级确认模态框 =====
+const confirmModal = document.createElement('div');
+confirmModal.className = 'modal';
+confirmModal.id = 'confirmModal';
+confirmModal.innerHTML = `
+  <div class="modal-content">
+    <h3 id="confirmTitle">确认操作</h3>
+    <p id="confirmMessage"></p>
+    <div class="modal-buttons">
+      <button id="confirmYes" style="background:#f44336;color:#fff;">确认</button>
+      <button id="confirmNo" style="background:#aaa;color:#fff;">取消</button>
+    </div>
+  </div>
+`;
+document.body.appendChild(confirmModal);
+
+let confirmCallback = null;
+const confirmYes = document.getElementById('confirmYes');
+const confirmNo = document.getElementById('confirmNo');
+const confirmMessage = document.getElementById('confirmMessage');
+
+function openConfirmModal(message, callback){
+  confirmMessage.textContent = message;
+  confirmModal.style.display = 'flex';
+  confirmCallback = callback;
+}
+
+confirmYes.addEventListener('click', ()=>{
+  if(confirmCallback) confirmCallback();
+  confirmModal.style.display = 'none';
+  confirmCallback = null;
+});
+
+confirmNo.addEventListener('click', ()=>{
+  confirmModal.style.display = 'none';
+  confirmCallback = null;
+});
+
+// ===== 出院/删除事件 =====
+modalDischarge.addEventListener('click', (e)=>{
+  e.stopPropagation();
+  if(!currentEdit) return;
+  openConfirmModal(`确认将病人 ${currentEdit.name} 出院吗？`, ()=>{
     currentEdit.discharged = true;
     updatePatientInCloud(currentEdit);
     renderBoard();
-    editModal.style.display = "none";
-  }
+    editModal.style.display = 'none';
+  });
 });
-modalDelete.addEventListener("click", ()=>{
-  if(currentEdit){
+
+modalDelete.addEventListener('click', (e)=>{
+  e.stopPropagation();
+  if(!currentEdit) return;
+  openConfirmModal(`确认删除病人 ${currentEdit.name} 吗？`, ()=>{
     deletePatientInCloud(currentEdit);
     patients = patients.filter(p=>p.objectId!==currentEdit.objectId);
     renderBoard();
-    editModal.style.display = "none";
-  }
+    editModal.style.display = 'none';
+  });
+});
+
+// ===== 拖拽出院/删除 =====
+[dischargeZone, deleteZone].forEach(zone=>{
+  zone.addEventListener("dragover", e=>e.preventDefault());
+  zone.addEventListener("drop", e=>{
+    e.preventDefault();
+    const objectId = e.dataTransfer.getData("text/plain");
+    const patient = patients.find(p=>p.objectId===objectId);
+    if(!patient) return;
+
+    if(zone.id==="dischargeZone"){
+      openConfirmModal(`确认将病人 ${patient.name} 出院吗？`, ()=>{
+        patient.discharged = true;
+        updatePatientInCloud(patient);
+        renderBoard();
+      });
+    } else {
+      openConfirmModal(`确认删除病人 ${patient.name} 吗？`, ()=>{
+        deletePatientInCloud(patient);
+        patients = patients.filter(p=>p.objectId!==objectId);
+        renderBoard();
+      });
+    }
+  });
 });
 
 // ===== 医生模态 =====
@@ -225,13 +491,11 @@ modalConfirmDoctor.addEventListener("click", ()=>{
   const newName = modalDoctorName.value.trim();
   if(!newName) return alert("医生姓名不能为空");
 
-  // 修改当前医生姓名
   doctorOrder[currentEditDoctorIndex] = newName;
   patients.forEach(p=>{
     if(p.doctor===oldName) { p.doctor=newName; updatePatientInCloud(p); }
   });
 
-  // 修改顺序字符串
   const newOrderStr = modalDoctorOrderText.value.trim();
   if(newOrderStr){
     doctorOrder = newOrderStr.split("-").map(s=>s.trim()).filter(Boolean);
@@ -312,25 +576,10 @@ function saveRecentPatientToCloud(){
   const Recent = AV.Object.extend('recentPatientName');
   const recentObj = new Recent();
   recentObj.set('name', recentPatientName);
-  const acl = new AV.ACL();
-  acl.setPublicReadAccess(true); acl.setPublicWriteAccess(true);
+  const acl = new AV.ACL(); acl.setPublicReadAccess(true); acl.setPublicWriteAccess(true);
   recentObj.setACL(acl);
   recentObj.save().catch(console.error);
 }
-
-// ===== 拖拽 =====
-[dischargeZone, deleteZone].forEach(zone=>{
-  zone.addEventListener("dragover", e=>e.preventDefault());
-  zone.addEventListener("drop", e=>{
-    e.preventDefault();
-    const objectId = e.dataTransfer.getData("text/plain");
-    const patient = patients.find(p=>p.objectId===objectId);
-    if(!patient) return;
-    if(zone.id==="dischargeZone"){ patient.discharged=true; updatePatientInCloud(patient);}
-    else{ deletePatientInCloud(patient); patients=patients.filter(p=>p.objectId!==objectId);}
-    renderBoard();
-  });
-});
 
 // ===== 视图切换 =====
 currentPatientsBtn.addEventListener("click", ()=>{currentView="current"; renderBoard();});
@@ -382,5 +631,6 @@ function init(){
 }
 init();
 </script>
+
 </body>
 </html>
