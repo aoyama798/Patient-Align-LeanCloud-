@@ -17,17 +17,16 @@ header{display:flex;justify-content:space-between;align-items:center;padding:1re
 .drop-zone{flex:1;height:80px;background:#eee;border:2px dashed #ccc;display:flex;justify-content:center;align-items:center;border-radius:8px}
 .modal{display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);justify-content:center;align-items:center;z-index:1000}
 .modal-content{background:#fff;padding:1rem;border-radius:8px;max-width:400px;width:90%;display:flex;flex-direction:column;gap:.5rem}
-textarea{resize:none}
+textarea, select, input[type="text"]{resize:none}
 .modal-buttons{display:flex;justify-content:flex-end;gap:.5rem}
 </style>
 </head>
 <body>
 <header>
   <div style="display:flex; align-items:center; justify-content:center; gap:0.5em;">
-  <img src="https://mac-upic.oss-cn-chengdu.aliyuncs.com/logo.png" 
-       style="width:auto; height:2em;">
-  <h1 style="margin:0;">创二看板</h1>
-</div>
+    <img src="https://mac-upic.oss-cn-chengdu.aliyuncs.com/logo.png" style="width:auto; height:2em;">
+    <h1 style="margin:0;">创二·患者看板</h1>
+  </div>
   <div class="view-toggle">
     <button id="currentPatientsBtn">当前在院</button>
     <button id="allPatientsBtn">所有病人</button>
@@ -54,8 +53,9 @@ textarea{resize:none}
 <div class="modal" id="editModal">
   <div class="modal-content">
     <h3 id="modalTitle">编辑信息</h3>
-    <input type="text" id="modalInput" placeholder="">
+    <input type="text" id="modalInput" placeholder="姓名">
     <textarea id="modalNotes" placeholder="备注/代办事项"></textarea>
+    <select id="modalDoctorSelect"></select>
     <div class="modal-buttons">
       <button id="modalDischarge">出院</button>
       <button id="modalDelete">删除</button>
@@ -70,9 +70,7 @@ textarea{resize:none}
   <div class="modal-content">
     <h3>编辑医生</h3>
     <input type="text" id="modalDoctorName" placeholder="医生姓名">
-    <label>顺序：
-      <input type="number" id="modalDoctorOrder" min="1" style="width:60px;">
-    </label>
+    <input type="text" id="modalDoctorOrderText" placeholder="用-分隔医生顺序，例如：肖-汪-曹">
     <div class="modal-buttons">
       <button id="modalDeleteDoctor">删除医生及其病人</button>
       <button id="modalConfirmDoctor">确认</button>
@@ -105,6 +103,7 @@ const addPatientBtn = document.getElementById("addPatientBtn");
 const editModal = document.getElementById("editModal");
 const modalInput = document.getElementById("modalInput");
 const modalNotes = document.getElementById("modalNotes");
+const modalDoctorSelect = document.getElementById("modalDoctorSelect");
 const modalConfirm = document.getElementById("modalConfirm");
 const modalCancel = document.getElementById("modalCancel");
 const modalDischarge = document.getElementById("modalDischarge");
@@ -119,7 +118,7 @@ const allPatientsBtn = document.getElementById("allPatientsBtn");
 // 医生模态元素
 const editDoctorModal = document.getElementById("editDoctorModal");
 const modalDoctorName = document.getElementById("modalDoctorName");
-const modalDoctorOrder = document.getElementById("modalDoctorOrder");
+const modalDoctorOrderText = document.getElementById("modalDoctorOrderText");
 const modalDeleteDoctor = document.getElementById("modalDeleteDoctor");
 const modalConfirmDoctor = document.getElementById("modalConfirmDoctor");
 const modalCancelDoctor = document.getElementById("modalCancelDoctor");
@@ -147,7 +146,7 @@ function renderBoard(){
       card.textContent = currentView==="all" && p.discharged ? `${p.name}（已出院）`: p.name;
       card.draggable = true;
       card.addEventListener("dragstart", e=>{ e.dataTransfer.setData("text/plain",p.objectId); });
-      card.addEventListener("dblclick", ()=>openEditModal(p));
+      card.addEventListener("click", ()=>openEditModal(p));
       col.appendChild(card);
     });
     doctorColumns.appendChild(col);
@@ -170,6 +169,16 @@ function openEditModal(patient){
   currentEdit = patient;
   modalInput.value = patient.name;
   modalNotes.value = patient.notes;
+
+  modalDoctorSelect.innerHTML = "";
+  doctorOrder.forEach(d=>{
+    const opt = document.createElement("option");
+    opt.value = d;
+    opt.textContent = d;
+    if(d===patient.doctor) opt.selected = true;
+    modalDoctorSelect.appendChild(opt);
+  });
+
   editModal.style.display = "flex";
 }
 
@@ -177,6 +186,7 @@ modalConfirm.addEventListener("click", ()=>{
   if(currentEdit){
     currentEdit.name = modalInput.value.trim();
     currentEdit.notes = modalNotes.value;
+    currentEdit.doctor = modalDoctorSelect.value;
     renderBoard();
     updatePatientInCloud(currentEdit);
     editModal.style.display = "none";
@@ -205,28 +215,26 @@ modalDelete.addEventListener("click", ()=>{
 function openDoctorModal(idx){
   currentEditDoctorIndex = idx;
   modalDoctorName.value = doctorOrder[idx];
-  modalDoctorOrder.value = idx+1;
+  modalDoctorOrderText.value = doctorOrder.join("-");
   editDoctorModal.style.display = "flex";
 }
 
 modalConfirmDoctor.addEventListener("click", ()=>{
   if(currentEditDoctorIndex === null) return;
-  const newName = modalDoctorName.value.trim();
-  let newOrder = parseInt(modalDoctorOrder.value)-1;
-  if(!newName) return alert("医生姓名不能为空");
-  if(isNaN(newOrder) || newOrder<0) newOrder = currentEditDoctorIndex;
-  if(newOrder >= doctorOrder.length) newOrder = doctorOrder.length-1;
-
   const oldName = doctorOrder[currentEditDoctorIndex];
+  const newName = modalDoctorName.value.trim();
+  if(!newName) return alert("医生姓名不能为空");
+
+  // 修改当前医生姓名
   doctorOrder[currentEditDoctorIndex] = newName;
+  patients.forEach(p=>{
+    if(p.doctor===oldName) { p.doctor=newName; updatePatientInCloud(p); }
+  });
 
-  // 更新患者 doctor 名
-  patients.forEach(p=>{ if(p.doctor===oldName) p.doctor=newName; updatePatientInCloud(p); });
-
-  // 调整顺序
-  if(newOrder !== currentEditDoctorIndex){
-    const moved = doctorOrder.splice(currentEditDoctorIndex,1)[0];
-    doctorOrder.splice(newOrder,0,moved);
+  // 修改顺序字符串
+  const newOrderStr = modalDoctorOrderText.value.trim();
+  if(newOrderStr){
+    doctorOrder = newOrderStr.split("-").map(s=>s.trim()).filter(Boolean);
   }
 
   syncDoctorCloud();
@@ -243,12 +251,8 @@ modalDeleteDoctor.addEventListener("click", ()=>{
   patientsToDelete.forEach(p=>deletePatientInCloud(p));
   patients = patients.filter(p=>p.doctor!==nameToDelete);
 
-  // 删除医生云端对象
-  const doctorQuery = new AV.Query('doctors');
-  doctorQuery.equalTo('name', nameToDelete);
-  doctorQuery.first().then(obj=>obj?obj.destroy():null).catch(console.error);
-
   doctorOrder.splice(currentEditDoctorIndex,1);
+  syncDoctorCloud();
   renderBoard();
   editDoctorModal.style.display="none";
 });
@@ -334,10 +338,13 @@ allPatientsBtn.addEventListener("click", ()=>{currentView="all"; renderBoard();}
 
 // ===== 数据加载 =====
 function loadDoctorsFromCloud(){
-  const query = new AV.Query('doctors');
-  query.ascending('order');
-  return query.find().then(results=>{
-    doctorOrder = results.map(d=>d.get('name'));
+  const query = new AV.Query('doctorsOrder');
+  return query.first().then(obj=>{
+    if(obj){
+      doctorOrder = obj.get('name').split("-").map(s=>s.trim()).filter(Boolean);
+    } else {
+      doctorOrder = [];
+    }
   });
 }
 
@@ -356,18 +363,14 @@ function loadPatientsFromCloud(){
 
 // ===== 医生云端同步 =====
 function syncDoctorCloud(){
-  doctorOrder.forEach((d, idx)=>{
-    const query = new AV.Query('doctors');
-    query.equalTo('name', d);
-    query.first().then(obj=>{
-      let doctorObj = obj || new AV.Object('doctors');
-      doctorObj.set('name', d);
-      doctorObj.set('order', idx);
-      const acl = new AV.ACL(); acl.setPublicReadAccess(true); acl.setPublicWriteAccess(true);
-      doctorObj.setACL(acl);
-      return doctorObj.save();
-    }).catch(console.error);
-  });
+  const query = new AV.Query('doctorsOrder');
+  query.first().then(obj=>{
+    let orderObj = obj || new AV.Object('doctorsOrder');
+    orderObj.set('name', doctorOrder.join("-"));
+    const acl = new AV.ACL(); acl.setPublicReadAccess(true); acl.setPublicWriteAccess(true);
+    orderObj.setACL(acl);
+    return orderObj.save();
+  }).catch(console.error);
 }
 
 // ===== 初始化 =====
@@ -379,6 +382,5 @@ function init(){
 }
 init();
 </script>
-
 </body>
 </html>
