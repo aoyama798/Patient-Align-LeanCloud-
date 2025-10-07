@@ -8,66 +8,26 @@
 body {font-family:"Tahoma",sans-serif;margin:0;padding:0;background:#f4f6f8}
 header{display:flex;justify-content:space-between;align-items:center;padding:1rem;background:#2196F3;color:#fff}
 .input-area{display:flex;gap:.5rem;padding:1rem;flex-wrap:wrap}
-/* 替换原来的 .board 样式 */
-.board {
-  display: flex;
-  flex-wrap: wrap;         /* 自动换行 */
-  gap: 1rem;               /* 列间距 */
-  justify-content: center;  /* 居中排列 */
-  padding: 1rem;
-}
-
-/* 每列医生 */
-.doctor-column {
-  background: #fff;
-  margin: 0.5rem;
-  padding: 0.5rem;
-  border-radius: 8px;
-  min-width: 200px;
-  flex: 1 1 calc(50% - 1rem); /* 两列布局，间距考虑1rem */
-  box-sizing: border-box;
-}
-
-/* 手机小屏：单列 */
-@media (max-width: 600px) {
-  .doctor-column {
-    flex: 1 1 100%; /* 单列 */
-  }
-}
-
-/* 平板中屏：两列 */
-@media (min-width: 601px) and (max-width: 900px) {
-  .doctor-column {
-    flex: 1 1 calc(50% - 1rem); /* 两列 */
-  }
-}
-
-/* 大屏多列自适应 */
-@media (min-width: 901px) {
-  .doctor-column {
-    flex: 1 1 calc(33.33% - 1rem); /* 三列，可根据需要调整 */
-  }
-}
-
-.doctor-column{background:#fff;margin:.5rem;padding:.5rem;border-radius:8px;min-width:200px;flex-shrink:0}
-.doctor-column h2{text-align:center;cursor:pointer}
+.board {display: flex;flex-wrap: wrap;gap: 1rem;justify-content: center;padding: 1rem;}
+.doctor-column {background: #fff;margin: 0.5rem;padding: 0.5rem;border-radius: 8px;min-width: 200px;flex: 1 1 calc(20% - 1rem);box-sizing: border-box;}
+@media (max-width: 600px) {.doctor-column {flex: 2 2 100%;}}
 .patient-card{background:#e3f2fd;margin:.5rem 0;padding:.5rem;border-radius:6px;cursor:grab}
 .patient-card.recent{border:2px solid red}
 .operation-area{display:flex;gap:1rem;padding:1rem}
 .drop-zone{flex:1;height:80px;background:#eee;border:2px dashed #ccc;display:flex;justify-content:center;align-items:center;border-radius:8px}
-.modal{display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);justify-content:center;align-items:center}
+.modal{display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);justify-content:center;align-items:center;z-index:1000}
 .modal-content{background:#fff;padding:1rem;border-radius:8px;max-width:400px;width:90%;display:flex;flex-direction:column;gap:.5rem}
 textarea{resize:none}
 .modal-buttons{display:flex;justify-content:flex-end;gap:.5rem}
-@media(max-width:1024px){.board{flex-wrap:wrap}.doctor-column{flex:1 1 45%}}
-@media(max-width:600px){.doctor-column{flex:1 1 100%}}
 </style>
-
-  
 </head>
 <body>
 <header>
-  <h1>创二病人看板系统</h1>
+  <div style="display:flex; align-items:center; justify-content:center; gap:0.5em;">
+  <img src="https://mac-upic.oss-cn-chengdu.aliyuncs.com/logo.png" 
+       style="width:auto; height:2em;">
+  <h1 style="margin:0;">创二看板</h1>
+</div>
   <div class="view-toggle">
     <button id="currentPatientsBtn">当前在院</button>
     <button id="allPatientsBtn">所有病人</button>
@@ -90,6 +50,7 @@ textarea{resize:none}
   <div class="drop-zone" id="deleteZone">删除</div>
 </section>
 
+<!-- 病人编辑模态 -->
 <div class="modal" id="editModal">
   <div class="modal-content">
     <h3 id="modalTitle">编辑信息</h3>
@@ -100,6 +61,22 @@ textarea{resize:none}
       <button id="modalDelete">删除</button>
       <button id="modalConfirm">确认</button>
       <button id="modalCancel">取消</button>
+    </div>
+  </div>
+</div>
+
+<!-- 医生编辑模态 -->
+<div class="modal" id="editDoctorModal">
+  <div class="modal-content">
+    <h3>编辑医生</h3>
+    <input type="text" id="modalDoctorName" placeholder="医生姓名">
+    <label>顺序：
+      <input type="number" id="modalDoctorOrder" min="1" style="width:60px;">
+    </label>
+    <div class="modal-buttons">
+      <button id="modalDeleteDoctor">删除医生及其病人</button>
+      <button id="modalConfirmDoctor">确认</button>
+      <button id="modalCancelDoctor">取消</button>
     </div>
   </div>
 </div>
@@ -115,7 +92,7 @@ AV.init({
 
 // ===== 数据 =====
 let patients = [];
-let doctorOrder = ["汪","曹","肖"];
+let doctorOrder = [];
 let recentPatientName = "";
 let currentView = "current"; // current / all
 
@@ -139,56 +116,47 @@ const deleteZone = document.getElementById("deleteZone");
 const currentPatientsBtn = document.getElementById("currentPatientsBtn");
 const allPatientsBtn = document.getElementById("allPatientsBtn");
 
+// 医生模态元素
+const editDoctorModal = document.getElementById("editDoctorModal");
+const modalDoctorName = document.getElementById("modalDoctorName");
+const modalDoctorOrder = document.getElementById("modalDoctorOrder");
+const modalDeleteDoctor = document.getElementById("modalDeleteDoctor");
+const modalConfirmDoctor = document.getElementById("modalConfirmDoctor");
+const modalCancelDoctor = document.getElementById("modalCancelDoctor");
+
 let currentEdit = null;
+let currentEditDoctorIndex = null;
 
 // ===== 渲染医生列和病人 =====
 function renderBoard(){
   doctorColumns.innerHTML = "";
-  doctorOrder.forEach((doc, idx) => {
+  doctorOrder.forEach((doc, idx)=>{
     const col = document.createElement("div");
     col.className = "doctor-column";
 
     const h2 = document.createElement("h2");
     h2.textContent = doc;
-    h2.addEventListener("click", ()=>{
-      const newName = prompt("修改医生名字", doc);
-      if(newName && newName.trim() && newName !== doc){
-        const oldName = doctorOrder[idx];
-        doctorOrder[idx] = newName.trim();
-        patients.forEach(p=>{ if(p.doctor===oldName) p.doctor=newName.trim(); updatePatientInCloud(p); });
-        renderBoard();
-      }
-    });
-
     col.appendChild(h2);
+    h2.addEventListener("click", ()=>openDoctorModal(idx));
 
     patients.filter(p=>p.doctor===doc).forEach(p=>{
-  if(currentView==="current" && p.discharged) return; // 仅显示当前在院
-  const card = document.createElement("div");
-  card.className = "patient-card";
-  if(p.name===recentPatientName) card.classList.add("recent");
-
-  // ===== 新增部分 =====
-  if(currentView==="all" && p.discharged){
-    card.textContent = `${p.name}（已出院）`;
-    card.style.color = "orange"; // 黄色
-  } else {
-    card.textContent = p.name;
-  }
-  // =================
-
-  card.draggable = true;
-  card.addEventListener("dragstart", e => { e.dataTransfer.setData("text/plain", p.id); });
-  card.addEventListener("dblclick", ()=>openEditModal(p));
-
-  col.appendChild(card);
-});
-
-
+      if(currentView==="current" && p.discharged) return;
+      const card = document.createElement("div");
+      card.className="patient-card";
+      if(p.name===recentPatientName) card.classList.add("recent");
+      card.textContent = currentView==="all" && p.discharged ? `${p.name}（已出院）`: p.name;
+      card.draggable = true;
+      card.addEventListener("dragstart", e=>{ e.dataTransfer.setData("text/plain",p.objectId); });
+      card.addEventListener("dblclick", ()=>openEditModal(p));
+      col.appendChild(card);
+    });
     doctorColumns.appendChild(col);
   });
+  updateDoctorDatalist();
+}
 
-  // 更新 datalist
+// ===== 更新 datalist =====
+function updateDoctorDatalist(){
   doctorList.innerHTML = "";
   doctorOrder.forEach(d=>{
     const option = document.createElement("option");
@@ -197,7 +165,7 @@ function renderBoard(){
   });
 }
 
-// ===== 模态框 =====
+// ===== 模态框交互 =====
 function openEditModal(patient){
   currentEdit = patient;
   modalInput.value = patient.name;
@@ -216,7 +184,6 @@ modalConfirm.addEventListener("click", ()=>{
 });
 
 modalCancel.addEventListener("click", ()=>{ editModal.style.display = "none"; });
-
 modalDischarge.addEventListener("click", ()=>{
   if(currentEdit){
     currentEdit.discharged = true;
@@ -225,20 +192,68 @@ modalDischarge.addEventListener("click", ()=>{
     editModal.style.display = "none";
   }
 });
-
 modalDelete.addEventListener("click", ()=>{
   if(currentEdit){
-    const query = new AV.Query('patients');
-    query.equalTo('id', currentEdit.id);
-    query.first().then(obj=>{
-      if(obj) return obj.destroy();
-    }).then(()=>{
-      patients = patients.filter(p=>p.id!==currentEdit.id);
-      renderBoard();
-      editModal.style.display = "none";
-    }).catch(err=>console.error(err));
+    deletePatientInCloud(currentEdit);
+    patients = patients.filter(p=>p.objectId!==currentEdit.objectId);
+    renderBoard();
+    editModal.style.display = "none";
   }
 });
+
+// ===== 医生模态 =====
+function openDoctorModal(idx){
+  currentEditDoctorIndex = idx;
+  modalDoctorName.value = doctorOrder[idx];
+  modalDoctorOrder.value = idx+1;
+  editDoctorModal.style.display = "flex";
+}
+
+modalConfirmDoctor.addEventListener("click", ()=>{
+  if(currentEditDoctorIndex === null) return;
+  const newName = modalDoctorName.value.trim();
+  let newOrder = parseInt(modalDoctorOrder.value)-1;
+  if(!newName) return alert("医生姓名不能为空");
+  if(isNaN(newOrder) || newOrder<0) newOrder = currentEditDoctorIndex;
+  if(newOrder >= doctorOrder.length) newOrder = doctorOrder.length-1;
+
+  const oldName = doctorOrder[currentEditDoctorIndex];
+  doctorOrder[currentEditDoctorIndex] = newName;
+
+  // 更新患者 doctor 名
+  patients.forEach(p=>{ if(p.doctor===oldName) p.doctor=newName; updatePatientInCloud(p); });
+
+  // 调整顺序
+  if(newOrder !== currentEditDoctorIndex){
+    const moved = doctorOrder.splice(currentEditDoctorIndex,1)[0];
+    doctorOrder.splice(newOrder,0,moved);
+  }
+
+  syncDoctorCloud();
+  renderBoard();
+  editDoctorModal.style.display="none";
+});
+
+modalDeleteDoctor.addEventListener("click", ()=>{
+  if(currentEditDoctorIndex === null) return;
+  const nameToDelete = doctorOrder[currentEditDoctorIndex];
+  if(!confirm(`确认删除医生 ${nameToDelete} 及其所有病人吗？`)) return;
+
+  const patientsToDelete = patients.filter(p=>p.doctor===nameToDelete);
+  patientsToDelete.forEach(p=>deletePatientInCloud(p));
+  patients = patients.filter(p=>p.doctor!==nameToDelete);
+
+  // 删除医生云端对象
+  const doctorQuery = new AV.Query('doctors');
+  doctorQuery.equalTo('name', nameToDelete);
+  doctorQuery.first().then(obj=>obj?obj.destroy():null).catch(console.error);
+
+  doctorOrder.splice(currentEditDoctorIndex,1);
+  renderBoard();
+  editDoctorModal.style.display="none";
+});
+
+modalCancelDoctor.addEventListener("click", ()=>{ editDoctorModal.style.display="none"; });
 
 // ===== 新增病人 =====
 addPatientBtn.addEventListener("click", () => {
@@ -246,51 +261,47 @@ addPatientBtn.addEventListener("click", () => {
   let doctor = doctorInput.value.trim();
   if(!name || !doctor) return alert("请输入完整信息");
 
-  if(!doctorOrder.includes(doctor)) doctorOrder.push(doctor);
+  if(!doctorOrder.includes(doctor)){
+    doctorOrder.push(doctor);
+    updateDoctorDatalist();
+    syncDoctorCloud();
+  }
 
-  const patient = { name, doctor, notes:"", discharged:false, id:Date.now() };
-  patients.push(patient);
-  recentPatientName = name;
-  renderBoard();
-  savePatientToCloud(patient);
-  saveRecentPatientToCloud();
+  const Patient = AV.Object.extend('patients');
+  const pObj = new Patient();
+  pObj.set('name', name);
+  pObj.set('doctor', doctor);
+  pObj.set('notes', "");
+  pObj.set('discharged', false);
+  const acl = new AV.ACL(); acl.setPublicReadAccess(true); acl.setPublicWriteAccess(true);
+  pObj.setACL(acl);
+  pObj.save().then(saved=>{
+    const patient = { objectId: saved.id, name, doctor, notes:"", discharged:false };
+    patients.push(patient);
+    recentPatientName = name;
+    renderBoard();
+    saveRecentPatientToCloud();
+  }).catch(console.error);
+
   patientNameInput.value = "";
   doctorInput.value = "";
 });
 
-// ===== LeanCloud 保存 =====
-function savePatientToCloud(patient){
-  const Patient = AV.Object.extend('patients');
-  const p = new Patient();
-  p.set('name', patient.name);
-  p.set('doctor', patient.doctor);
-  p.set('notes', patient.notes);
-  p.set('discharged', patient.discharged);
-  p.set('id', patient.id);
-
-  // 设置 ACL，允许公开读写
-  const acl = new AV.ACL();
-  acl.setPublicReadAccess(true);
-  acl.setPublicWriteAccess(true);
-  p.setACL(acl);
-
-  p.save().then(()=>console.log('病人已保存到云端'))
-           .catch(err=>console.error('保存失败',err));
-}
-
+// ===== LeanCloud 操作函数 =====
 function updatePatientInCloud(patient){
   const query = new AV.Query('patients');
-  query.equalTo('id', patient.id);
-  query.first().then(obj=>{
-    if(obj){
-      obj.set('name', patient.name);
-      obj.set('doctor', patient.doctor);
-      obj.set('notes', patient.notes);
-      obj.set('discharged', patient.discharged);
-      return obj.save();
-    }
-  }).then(()=>console.log('病人更新成功'))
-    .catch(err=>console.error('更新失败',err));
+  query.get(patient.objectId).then(obj=>{
+    obj.set('name', patient.name);
+    obj.set('doctor', patient.doctor);
+    obj.set('notes', patient.notes);
+    obj.set('discharged', patient.discharged);
+    return obj.save();
+  }).catch(console.error);
+}
+
+function deletePatientInCloud(patient){
+  const query = new AV.Query('patients');
+  query.get(patient.objectId).then(obj=>obj.destroy()).catch(console.error);
 }
 
 function saveRecentPatientToCloud(){
@@ -298,70 +309,76 @@ function saveRecentPatientToCloud(){
   const recentObj = new Recent();
   recentObj.set('name', recentPatientName);
   const acl = new AV.ACL();
-  acl.setPublicReadAccess(true);
-  acl.setPublicWriteAccess(true);
+  acl.setPublicReadAccess(true); acl.setPublicWriteAccess(true);
   recentObj.setACL(acl);
-  recentObj.save().then(()=>console.log('最近病人保存成功'))
-                   .catch(err=>console.error('保存最近病人失败',err));
+  recentObj.save().catch(console.error);
 }
 
-// ===== 拖拽出院/删除区 =====
+// ===== 拖拽 =====
 [dischargeZone, deleteZone].forEach(zone=>{
   zone.addEventListener("dragover", e=>e.preventDefault());
   zone.addEventListener("drop", e=>{
     e.preventDefault();
-    const id = parseInt(e.dataTransfer.getData("text/plain"));
-    const patient = patients.find(p=>p.id===id);
+    const objectId = e.dataTransfer.getData("text/plain");
+    const patient = patients.find(p=>p.objectId===objectId);
     if(!patient) return;
-    if(zone.id==="dischargeZone"){
-      patient.discharged = true;
-      updatePatientInCloud(patient);
-    } else if(zone.id==="deleteZone"){
-      const query = new AV.Query('patients');
-      query.equalTo('id', patient.id);
-      query.first().then(obj=>obj?obj.destroy():null)
-           .catch(err=>console.error(err));
-      patients = patients.filter(p=>p.id!==id);
-    }
+    if(zone.id==="dischargeZone"){ patient.discharged=true; updatePatientInCloud(patient);}
+    else{ deletePatientInCloud(patient); patients=patients.filter(p=>p.objectId!==objectId);}
     renderBoard();
   });
 });
 
 // ===== 视图切换 =====
-currentPatientsBtn.addEventListener("click", ()=>{
-  currentView = "current";
-  renderBoard();
-});
-allPatientsBtn.addEventListener("click", ()=>{
-  currentView = "all";
-  renderBoard();
-});
+currentPatientsBtn.addEventListener("click", ()=>{currentView="current"; renderBoard();});
+allPatientsBtn.addEventListener("click", ()=>{currentView="all"; renderBoard();});
 
-// ===== 加载数据 =====
+// ===== 数据加载 =====
+function loadDoctorsFromCloud(){
+  const query = new AV.Query('doctors');
+  query.ascending('order');
+  return query.find().then(results=>{
+    doctorOrder = results.map(d=>d.get('name'));
+  });
+}
+
 function loadPatientsFromCloud(){
   const query = new AV.Query('patients');
-  query.find().then(results=>{
+  return query.find().then(results=>{
     patients = results.map(r=>({
-      id: r.get('id'),
+      objectId: r.id,
       name: r.get('name'),
       doctor: r.get('doctor'),
       notes: r.get('notes'),
       discharged: r.get('discharged')
     }));
-    renderBoard();
-  }).catch(err=>console.error(err));
-}
-
-function init(){
-  doctorOrder.forEach(d=>{
-    const option = document.createElement("option");
-    option.value = d;
-    doctorList.appendChild(option);
   });
-  loadPatientsFromCloud();
 }
 
+// ===== 医生云端同步 =====
+function syncDoctorCloud(){
+  doctorOrder.forEach((d, idx)=>{
+    const query = new AV.Query('doctors');
+    query.equalTo('name', d);
+    query.first().then(obj=>{
+      let doctorObj = obj || new AV.Object('doctors');
+      doctorObj.set('name', d);
+      doctorObj.set('order', idx);
+      const acl = new AV.ACL(); acl.setPublicReadAccess(true); acl.setPublicWriteAccess(true);
+      doctorObj.setACL(acl);
+      return doctorObj.save();
+    }).catch(console.error);
+  });
+}
+
+// ===== 初始化 =====
+function init(){
+  loadDoctorsFromCloud()
+    .then(loadPatientsFromCloud)
+    .then(renderBoard)
+    .catch(console.error);
+}
 init();
 </script>
+
 </body>
 </html>
