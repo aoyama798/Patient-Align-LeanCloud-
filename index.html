@@ -281,6 +281,44 @@ header button:hover {
     padding: 0.8rem 1rem;
   }
 }
+
+/* ===== 在院病人床位列表 看板主体更紧凑 & 医生列自适应 ===== */
+.board {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 0.6rem;
+  padding: 0.5rem 1rem;
+  align-items: start; /* 每行高度独立 */
+}
+
+.doctor-column {
+  height: auto;
+  min-height: 200px;
+}
+
+/* ===== 底部病人列表 ===== */
+.bottom-area {
+  margin: 1rem;
+  padding: 0.8rem 1rem;
+  background: white;
+  border-radius: 10px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+}
+
+.bottom-area h3 {
+  margin: 0 0 0.5rem;
+  font-size: 1rem;
+  color: #2196F3;
+}
+
+#bedList {
+  font-size: 0.95rem;
+  color: #333;
+  white-space: pre-wrap;
+  line-height: 1.5;
+}
+
+
 </style>
 </head>
 
@@ -315,11 +353,18 @@ header button:hover {
 
 <section class="board" id="doctorColumns"></section>
 
-<section class="operation-area">
+<section class="operation-area" style="display:none;">
   <div class="drop-zone" id="dischargeZone"><i class="bi bi-box-arrow-up"></i> 出院</div>
   <div class="drop-zone" id="deleteZone"><i class="bi bi-trash"></i> 删除</div>
 </section>
 
+<div class="bottom-area">
+  <h3>在院床位列表(a~z)</h3>
+  <div id="bedList">加载中...</div>
+</div>
+
+  
+  
 <a href="https://aoyama798.github.io/blog2/" style="text-decoration:none;color:inherit;">
   <div style="text-align:center;margin:16px;">©Aoyama798</div>
 </a>
@@ -408,7 +453,6 @@ const modalCancelDoctor = document.getElementById("modalCancelDoctor");
 let currentEdit = null;
 let currentEditDoctorIndex = null;
 
-// ===== 渲染医生列和病人 =====
 function renderBoard() {
   doctorColumns.innerHTML = "";
   doctorColumns.style.display = "grid";
@@ -416,6 +460,9 @@ function renderBoard() {
   doctorColumns.style.gap = "1rem";
   doctorColumns.style.alignItems = "start"; 
   doctorColumns.style.justifyItems = "stretch"; 
+
+  // 找出最新创建时间
+  const latestTime = Math.max(...patients.map(p => new Date(p.createdAt).getTime()));
 
   doctorOrder.forEach((doc, idx) => {
     const col = document.createElement("div");
@@ -431,9 +478,11 @@ function renderBoard() {
 
       const card = document.createElement("div");
       card.className = "patient-card";
-      if (p.name === recentPatientName) card.classList.add("recent");
-      card.draggable = true;
 
+      // ⭐ 如果是最新添加病人 → 红框
+      if (new Date(p.createdAt).getTime() === latestTime) card.classList.add("recent");
+
+      card.draggable = true;
       card.addEventListener("dragstart", e => { e.dataTransfer.setData("text/plain", p.objectId); });
       card.addEventListener("click", () => openEditModal(p));
 
@@ -461,6 +510,41 @@ function renderBoard() {
   updateDoctorDatalist();
 }
 
+  
+// ===== 所有在院病人 =====
+async function loadBedList() {
+  try {
+    const query = new AV.Query('patients');
+    // 数据库里用的是 discharged:boolean，故按 discharged=false 查询“在院”
+    query.equalTo('discharged', false);
+    const results = await query.find();
+
+    // 抽取 name，并尝试解析开头的床号数字用于排序（兼容没有床号的）
+    const list = results.map(r => {
+      const name = r.get('name') || '';
+      const m = name.match(/^(\d{1,3})/);
+      const bedNum = m ? parseInt(m[1], 10) : 9999;
+      return { name, bedNum };
+    });
+
+    list.sort((a, b) => {
+      if (a.bedNum !== b.bedNum) return a.bedNum - b.bedNum;
+      return a.name.localeCompare(b.name, 'zh-Hans-CN');
+    });
+
+    const text = list.length ? list.map(x => x.name).join('，') : '暂无在院病人';
+    document.getElementById('bedList').textContent = text;
+  } catch (e) {
+    console.error('loadBedList error', e);
+    document.getElementById('bedList').textContent = '加载失败';
+  }
+}
+
+
+// 页面加载时直接执行
+loadBedList();
+
+  
 // ===== 更新 datalist =====
 function updateDoctorDatalist(){
   doctorList.innerHTML = "";
@@ -716,7 +800,8 @@ function loadPatientsFromCloud(){
       name: r.get('name'),
       doctor: r.get('doctor'),
       notes: r.get('notes'),
-      discharged: r.get('discharged')
+      discharged: r.get('discharged'),
+        createdAt: r.createdAt  // ⭐ 加上这一行
     }));
   });
 }
@@ -741,6 +826,7 @@ function init(){
     .catch(console.error);
 }
 init();
+
 </script>
 
 </body>
