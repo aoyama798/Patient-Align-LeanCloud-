@@ -827,7 +827,13 @@ addPatientBtn.addEventListener("click", () => {
 // ===== 手动重置最新=====
 modalMarkLatest.addEventListener("click", () => {
   if (!currentEdit) return;
-
+  
+  // ⭐ 第一道业务拦截
+  if (currentEdit.discharged) {
+    alert("出院患者无需标记为最新");
+    return;
+  }
+  
   const now = new Date();
 
   // 1️⃣ 本地
