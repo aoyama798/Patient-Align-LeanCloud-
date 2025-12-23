@@ -187,9 +187,23 @@ header button:hover {
   transform: translateY(-2px);
   box-shadow: 0 4px 12px rgba(0,0,0,0.15);
 }
+  
 .patient-card.recent {
-  border: 2px solid #f44336;
+  background: linear-gradient(135deg, #fde2e4, #f8bbd0);
 }
+  .patient-card.recent::after {
+  content: "new";
+  position: absolute;
+  top: 4px;
+  right: 6px;
+  font-size: 0.75rem;
+  color: #c2185b;
+  font-weight: bold;
+}
+.patient-card {
+  position: relative;
+}
+
 .patient-name {
   font-size: 1rem;
   font-weight: 600;
@@ -318,6 +332,13 @@ header button:hover {
   line-height: 1.5;
 }
 
+#modalMarkLatest {
+  background: #ec407a;
+  color: #fff;
+}
+#modalMarkLatest:hover {
+  background: #d81b60;
+}
 
 </style>
 </head>
@@ -390,6 +411,7 @@ header button:hover {
     <div class="modal-buttons">
       <button id="modalDischarge"><i class="bi bi-box-arrow-up"></i> 出院</button>
       <button id="modalDelete"><i class="bi bi-trash"></i> 删除</button>
+      <button id="modalMarkLatest"><i class="bi bi-clock-history"></i> 标记为最新</button>
       <button id="modalConfirm"><i class="bi bi-check-circle"></i> 确认</button>
       <button id="modalCancel"><i class="bi bi-x-circle"></i> 取消</button>
     </div>
@@ -461,6 +483,7 @@ const modalDoctorOrderText = document.getElementById("modalDoctorOrderText");
 const modalDeleteDoctor = document.getElementById("modalDeleteDoctor");
 const modalConfirmDoctor = document.getElementById("modalConfirmDoctor");
 const modalCancelDoctor = document.getElementById("modalCancelDoctor");
+const modalMarkLatest = document.getElementById("modalMarkLatest");
 
 let currentEdit = null;
 let currentEditDoctorIndex = null;
@@ -474,7 +497,10 @@ function renderBoard() {
   doctorColumns.style.justifyItems = "stretch"; 
 
   // 找出最新创建时间
-  const latestTime = Math.max(...patients.map(p => new Date(p.createdAt).getTime()));
+  const latestTime = Math.max(
+  ...patients.map(p => new Date(p.highlightAt || p.createdAt).getTime())
+);
+
 
   doctorOrder.forEach((doc, idx) => {
     const col = document.createElement("div");
@@ -497,7 +523,10 @@ function renderBoard() {
       card.className = "patient-card";
 
       // ⭐ 如果是最新添加病人 → 红框
-      if (new Date(p.createdAt).getTime() === latestTime) card.classList.add("recent");
+      if (new Date(p.highlightAt || p.createdAt).getTime() === latestTime) {
+  card.classList.add("recent");
+}
+
     
       // ⭐ 如果是出院病人 → 淡化透明
       if (p.discharged) {card.style.opacity = "0.5";}
@@ -773,14 +802,16 @@ addPatientBtn.addEventListener("click", () => {
   const acl = new AV.ACL(); acl.setPublicReadAccess(true); acl.setPublicWriteAccess(true);
   pObj.setACL(acl);
   pObj.save().then(saved=>{
-    const patient = { 
+  const patient = { 
   objectId: saved.id,
   name,
   doctor,
   notes: note,              // 顺手修正：备注不丢
   discharged: false,
-  createdAt: saved.createdAt // ⭐ 关键：补上 createdAt
+  createdAt: saved.createdAt, // ⭐ 关键：补上 createdAt
+  highlightAt: saved.createdAt   // ⭐ 新增
 };
+    pObj.set('highlightAt', saved.createdAt);
     patients.push(patient);
     recentPatientName = name;
     renderBoard();
@@ -793,6 +824,28 @@ addPatientBtn.addEventListener("click", () => {
   patientNoteInput.value = "";   // ⭐ 清空备注
 });
 
+// ===== 手动重置最新=====
+modalMarkLatest.addEventListener("click", () => {
+  if (!currentEdit) return;
+
+  const now = new Date();
+
+  // 1️⃣ 本地
+  currentEdit.highlightAt = now;
+
+  // 2️⃣ 云端
+  const query = new AV.Query('patients');
+  query.get(currentEdit.objectId).then(obj => {
+    obj.set('highlightAt', now);   // ✅ 合法字段
+    return obj.save();
+  }).then(() => {
+    renderBoard();
+    editModal.style.display = "none";
+  }).catch(console.error);
+});
+
+
+  
 // ===== LeanCloud 操作函数 =====
 function updatePatientInCloud(patient){
   const query = new AV.Query('patients');
@@ -847,13 +900,14 @@ function loadPatientsFromCloud(){
   const query = new AV.Query('patients');
   return query.find().then(results=>{
     patients = results.map(r=>({
-      objectId: r.id,
-      name: r.get('name'),
-      doctor: r.get('doctor'),
-      notes: r.get('notes'),
-      discharged: r.get('discharged'),
-        createdAt: r.createdAt  // ⭐ 加上这一行
-    }));
+  objectId: r.id,
+  name: r.get('name'),
+  doctor: r.get('doctor'),
+  notes: r.get('notes'),
+  discharged: r.get('discharged'),
+  createdAt: r.createdAt,
+  highlightAt: r.get('highlightAt') || r.createdAt
+}));
   });
 }
 
