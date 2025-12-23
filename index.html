@@ -339,7 +339,7 @@ header button:hover {
     </div>
     <div class="right">
       <button id="currentPatientsBtn"><i class="bi bi-house"></i> 在院</button>
-      <button id="allPatientsBtn"><i class="bi bi-people"></i> 所有</button>
+      <button id="allPatientsBtn"><i class="bi bi-people"></i> 出院</button>
     </div>
   </header>
 
@@ -359,7 +359,11 @@ header button:hover {
 </section>
 
 <div class="bottom-area">
-  <h3>在院床位列表(a~z)</h3>
+  <h3>
+  在院床位列表(a~z)
+  ｜当前共（<span id="currentCount">0</span>）人
+</h3>
+
   <div id="bedList">加载中...</div>
 </div>
 
@@ -419,7 +423,7 @@ AV.init({
 let patients = [];
 let doctorOrder = [];
 let recentPatientName = "";
-let currentView = "current"; // current / all
+let currentView = "current"; // current / disc
 
 const doctorColumns = document.getElementById("doctorColumns");
 const doctorInput = document.getElementById("doctorInput");
@@ -473,15 +477,24 @@ function renderBoard() {
     col.appendChild(h2);
     h2.addEventListener("click", () => openDoctorModal(idx));
 
-    patients.filter(p => p.doctor === doc).forEach(p => {
-      if (currentView === "current" && p.discharged) return;
-
+    patients
+  .filter(p => {
+    if (p.doctor !== doc) return false;
+    if (currentView === "current") return !p.discharged;
+    if (currentView === "discharged") return p.discharged;
+    return false;
+  })
+  .forEach(p => {
       const card = document.createElement("div");
       card.className = "patient-card";
 
       // ⭐ 如果是最新添加病人 → 红框
       if (new Date(p.createdAt).getTime() === latestTime) card.classList.add("recent");
+    
+      // ⭐ 如果是出院病人 → 淡化透明
+      if (p.discharged) {card.style.opacity = "0.5";}
 
+    
       card.draggable = true;
       card.addEventListener("dragstart", e => { e.dataTransfer.setData("text/plain", p.objectId); });
       card.addEventListener("click", () => openEditModal(p));
@@ -515,11 +528,14 @@ function renderBoard() {
 async function loadBedList() {
   try {
     const query = new AV.Query('patients');
-    // 数据库里用的是 discharged:boolean，故按 discharged=false 查询“在院”
-    query.equalTo('discharged', false);
+    query.equalTo('discharged', false); // 只统计在院
     const results = await query.find();
 
-    // 抽取 name，并尝试解析开头的床号数字用于排序（兼容没有床号的）
+    /* ===== 在院人数统计 ===== */
+    const count = results.length;
+    document.getElementById('currentCount').textContent = count;
+
+    /* ===== 床位排序逻辑（你原来的，保留） ===== */
     const list = results.map(r => {
       const name = r.get('name') || '';
       const m = name.match(/^(\d{1,3})/);
@@ -532,13 +548,19 @@ async function loadBedList() {
       return a.name.localeCompare(b.name, 'zh-Hans-CN');
     });
 
-    const text = list.length ? list.map(x => x.name).join('，') : '暂无在院病人';
+    const text = list.length
+      ? list.map(x => x.name).join('，')
+      : '暂无在院病人';
+
     document.getElementById('bedList').textContent = text;
+
   } catch (e) {
     console.error('loadBedList error', e);
     document.getElementById('bedList').textContent = '加载失败';
+    document.getElementById('currentCount').textContent = '—';
   }
 }
+
 
 
 // 页面加载时直接执行
@@ -777,8 +799,16 @@ function saveRecentPatientToCloud(){
 }
 
 // ===== 视图切换 =====
-currentPatientsBtn.addEventListener("click", ()=>{currentView="current"; renderBoard();});
-allPatientsBtn.addEventListener("click", ()=>{currentView="all"; renderBoard();});
+currentPatientsBtn.addEventListener("click", ()=>{
+  currentView = "current";
+  renderBoard();
+});
+
+allPatientsBtn.addEventListener("click", ()=>{
+  currentView = "discharged";
+  renderBoard();
+});
+
 
 // ===== 数据加载 =====
 function loadDoctorsFromCloud(){
