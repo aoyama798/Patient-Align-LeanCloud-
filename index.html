@@ -343,12 +343,19 @@ header button:hover {
     </div>
   </header>
 
-  <section class="input-area">
-    <input type="text" id="patientName" placeholder="输入病人姓名">
-    <input list="doctorList" id="doctorInput" placeholder="输入医生或选择">
-    <datalist id="doctorList"></datalist>
-    <button id="addPatientBtn"><i class="bi bi-person-plus"></i> 新增病人</button>
-  </section>
+<section class="input-area">
+  <input type="text" id="patientName" placeholder="输入病人姓名 / 床号+姓名">
+  <input list="doctorList" id="doctorInput" placeholder="输入医生或选择">
+  <datalist id="doctorList"></datalist>
+
+  <!-- ⭐ 新增备注输入 -->
+  <input type="text" id="patientNoteInput" placeholder="备注 / 诊断 / 待办">
+
+  <button id="addPatientBtn">
+    <i class="bi bi-person-plus"></i> 新增病人
+  </button>
+</section>
+
 </div>
 
 <section class="board" id="doctorColumns"></section>
@@ -430,6 +437,7 @@ const doctorInput = document.getElementById("doctorInput");
 const doctorList = document.getElementById("doctorList");
 const patientNameInput = document.getElementById("patientName");
 const addPatientBtn = document.getElementById("addPatientBtn");
+const patientNoteInput = document.getElementById("patientNoteInput");
 
 const editModal = document.getElementById("editModal");
 const modalInput = document.getElementById("modalInput");
@@ -606,7 +614,9 @@ modalConfirm.addEventListener("click", ()=>{
   }
 });
 
-modalCancel.addEventListener("click", ()=>{ editModal.style.display = "none"; });
+modalCancel.addEventListener("click", ()=>{ editModal.style.display = "none"; 
+                                          currentEdit = null;   // ⭐ 防串用
+                                          });
 
 // ===== 二级确认模态框 =====
 const confirmModal = document.createElement('div');
@@ -757,12 +767,20 @@ addPatientBtn.addEventListener("click", () => {
   const pObj = new Patient();
   pObj.set('name', name);
   pObj.set('doctor', doctor);
-  pObj.set('notes', "");
+  const note = patientNoteInput.value.trim();
+  pObj.set('notes', note);
   pObj.set('discharged', false);
   const acl = new AV.ACL(); acl.setPublicReadAccess(true); acl.setPublicWriteAccess(true);
   pObj.setACL(acl);
   pObj.save().then(saved=>{
-    const patient = { objectId: saved.id, name, doctor, notes:"", discharged:false };
+    const patient = { 
+  objectId: saved.id,
+  name,
+  doctor,
+  notes: note,              // 顺手修正：备注不丢
+  discharged: false,
+  createdAt: saved.createdAt // ⭐ 关键：补上 createdAt
+};
     patients.push(patient);
     recentPatientName = name;
     renderBoard();
@@ -772,6 +790,7 @@ addPatientBtn.addEventListener("click", () => {
 
   patientNameInput.value = "";
   doctorInput.value = "";
+  patientNoteInput.value = "";   // ⭐ 清空备注
 });
 
 // ===== LeanCloud 操作函数 =====
